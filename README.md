@@ -19,7 +19,7 @@
 
 ## 🚀 Trải nghiệm ngay
 
-👉 **Học tại:** [https://duynamo.github.io/Toeic/Toeic-Web-App/](https://duynamo.github.io/Toeic/Toeic-Web-App/)
+👉 **Học tại:** https://duynamo.github.io/Toeic/Toeic-Web-App/
 
 ---
 
