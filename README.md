@@ -1,7 +1,7 @@
 # 🎓 TOEIC Flashcards Mastery 2026 - ETS 2024 Specialized
 
 <p align="center">
-  <img src="https://img-chooser.herokuapp.com/https://imgur.com/a/your_mon_album_id" alt="Random Mon Icon Banner" height="200px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+  <img src="[https://img-chooser.herokuapp.com/https://imgur.com/a/your_mon_album_id](https://imgur.com/a/mon-YrxsXkT#7Kq51JJ)" alt="Random Mon Icon Banner" height="200px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
 </p>
 
 <p align="center">
