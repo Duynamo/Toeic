@@ -1,7 +1,7 @@
 # 🎓 TOEIC Flashcards Mastery 2026 - ETS 2024 Specialized
 
 <p align="center">
-  <img src="[https://img-chooser.herokuapp.com/https://imgur.com/a/mon-YrxsXkT#7Kq51JJ](https://imgur.com/a/mon-YrxsXkT#7Kq51JJ)" alt="Random Mon Icon Banner" height="200px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+  <img src="https://imgur-random-image.glitch.me/album/YrxsXkT" alt="Random Mon Icon Banner" height="200px" style="border-radius: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.3);" />
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
 ## 🎬 Demo Hoạt Động
 
 <p align="center">
-  <img src="./Toeic-Web-App/demo.gif" alt="TOEIC Flashcards Mastery Demo" width="600px" style="border-radius: 8px; border: 1px solid #ddd;" />
+  <img src="./Toeic-Web-App/demo.gif" alt="TOEIC Flashcards Mastery Demo" width="600px" style="border-radius: 12px; border: 2px solid #30363d;" />
 </p>
 
 ---
@@ -36,7 +36,7 @@
 * **🎯 Kho dữ liệu ETS 2024:**
   * 🎧 **Listening (LC):** Từ vựng Part 1, 2, 3, 4.
   * 📖 **Reading (RC):** Từ vựng Part 5, 6, đặc biệt là **Part 7**.
-* **🔊 Giọng đọc AI đa dạng:** Tích hợp **Google TTS**, **AWS Polly**, **Microsoft Azure TTS**... giúp luyện nghe giọng Mỹ, Anh, Úc chuẩn xác.
+* **🔊 Giọng đọc AI đa dạng:** Tích hợp **Google TTS**, giúp luyện nghe giọng Mỹ, Anh, Úc chuẩn xác.
 * **⚡ Chế độ "Khô Máu" (Hardcore):** Tăng cường khả năng ghi nhớ nhanh thông qua các vòng lặp từ vựng áp lực cao.
 * **📱 Giao diện Responsive:** Hiển thị tối ưu trên mọi thiết bị (PC, Máy tính bảng, Điện thoại).
 * **📊 Phân loại thông minh:** Dữ liệu JSON được phân chia rõ ràng theo từng chủ đề.
@@ -53,24 +53,23 @@
   <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/powershell/powershell-original.svg" alt="powershell" width="40" height="40"/> &nbsp;
 </p>
 
-* **Front-end:** HTML5, CSS3, JavaScript (Core logic).
-* **Data Processing:** Python (Scripts cào, xử lý CSV/JSON).
-* **Automation:** PowerShell (Tối ưu luồng công việc).
-* **AI TTS:** Các API/dịch vụ giọng đọc thông minh.
+* **Front-end:** HTML5, CSS3, JavaScript.
+* **Data Processing:** Python (Scripts cào, xử lý dữ liệu từ ETS).
+* **Automation:** PowerShell (Tối ưu hóa quy trình cập nhật).
 
 ---
 
 ## 📂 Cấu trúc dự án
 
-<details>
+<details open>
   <summary>📂 Danh mục file quan trọng</summary>
 
 ```text
 ├── Toeic-Web-App/
 │   ├── index.html          # Giao diện chính của ứng dụng
-│   ├── style.css           # Định dạng giao diện (Dark mode & Animations)
-│   ├── app.js              # Logic điều khiển Flashcards và giọng đọc
-│   ├── data.js             # File cầu nối dữ liệu
-│   └── demo.gif            # File GIF demo hoạt động
+│   ├── style.css           # Định dạng giao diện
+│   ├── app.js              # Logic điều khiển Flashcards
+│   ├── data.js             # Cầu nối dữ liệu
+│   └── demo.gif            # Ảnh động minh họa ứng dụng
 ├── scripts/                # Các script hỗ trợ (Python, PowerShell)
-└── data/                   # Dữ liệu từ vựng (CSV, JSON) từ ETS 2024
+└── data/                   # Dữ liệu từ vựng JSON/CSV
