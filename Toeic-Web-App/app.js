@@ -28,7 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
         hotkeyVocab: localStorage.getItem('TOEIC_HOTKEY_VOCAB') || 'v',
         hotkeyExample: localStorage.getItem('TOEIC_HOTKEY_EXAMPLE') || 'p',
         wordStats: {}, // { status: 0=new, 1=review, 2=mastered, step: 0, nextDate: timestamp }
-        hardcorePlan: null // { categories: [], targetDays: 30, startDate: ts, lastQueueDate: ts, queue: [], doneToday: 0 }
+        hardcorePlan: null, // { categories: [], targetDays: 30, startDate: ts, lastQueueDate: ts, queue: [], doneToday: 0 }
+        // New timer state
+        hcTimerValue: 0,
+        hcTimerInterval: null,
+        hcTimerIsRunning: false,
+        hcTimerMode: 'down' // up or down
     };
 
     // Load progress from localStorage
@@ -186,6 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function switchMainView(view) {
         state.currentMainView = view;
         
+        if (view !== 'hardcore_learning' && state.hcTimerInterval) {
+            clearInterval(state.hcTimerInterval);
+            state.hcTimerIsRunning = false;
+        }
+
         els.learningHeader.style.display = 'none';
         els.learningView.style.display = 'none';
         els.albumGridView.style.display = 'none';
@@ -630,45 +640,76 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selected.length === 0) {
             alert("Vui lòng chọn ít nhất 1 bộ từ vựng!"); return;
         }
+
+        let poolNew = [];
+        selected.forEach(cat => {
+            TOEIC_DATA[cat].forEach(w => {
+                const key = getWordKey(cat, w._album, w.tu_vung);
+                const stat = state.wordStats[key];
+                if (!stat || stat.status === 0 || stat.status === undefined) {
+                    poolNew.push({ wordObj: w, key: key, cat: cat, type: 'new' });
+                }
+            });
+        });
+
+        // Tách rổ từ mới theo targetDays
+        const chunks = [];
+        let wpd = Math.ceil(poolNew.length / days);
+        if (wpd === 0) wpd = 10;
+        for (let i = 0; i < days; i++) {
+            chunks.push(poolNew.slice(i * wpd, (i + 1) * wpd));
+        }
         
         state.hardcorePlan = {
             categories: selected,
             targetDays: days,
             startDate: getTodayStr(),
             lastQueueDate: null,
-            queueNew: [],
+            dailyChunks: chunks,
             queueReview: [],
-            doneNew: 0,
-            doneReview: 0
+            activeDay: 1
         };
         savePlan();
         document.getElementById('wizardModal').classList.remove('open');
         openHardcoreMode();
     }
 
+    window.switchToDay = function(dayNum) {
+        if (!state.hardcorePlan) return;
+        if (state.hardcorePlan.activeDay === dayNum) return;
+        
+        state.hardcorePlan.activeDay = dayNum;
+        savePlan();
+        switchMainView('hardcore');
+    };
+
     function generateTodayQueue() {
         const todayStr = getTodayStr();
         const plan = state.hardcorePlan;
         
+        // backward compatibility for old structural objects
+        if (!plan.dailyChunks) {
+            alert("Hệ thống Lộ trình vừa được Nâng Cấp lớn (Version 3.0), bài học cũ của bạn sẽ được thiết lập lại. Bạn vui lòng tạo lại Khởi động Lộ trình mới nhé!");
+            state.hardcorePlan = null;
+            savePlan();
+            openHardcoreMode();
+            return;
+        }
+
         if (plan.lastQueueDate === todayStr) {
             renderHardcoreDashboard();
             return;
         }
         
-        let totalWords = 0;
-        let poolNew = [];
         let poolReview = [];
         const nowTime = new Date().getTime();
         
         plan.categories.forEach(cat => {
             TOEIC_DATA[cat].forEach(w => {
-                totalWords++;
                 const key = getWordKey(cat, w._album, w.tu_vung);
                 const stat = state.wordStats[key];
                 
-                if (!stat || stat.status === 0 || stat.status === undefined) {
-                    poolNew.push({ wordObj: w, key: key, cat: cat, type: 'new' });
-                } else if (stat.status === 1) {
+                if (stat && stat.status === 1) {
                     if (stat.nextDate <= nowTime) {
                          poolReview.push({ wordObj: w, key: key, cat: cat, type: 'review' });
                     }
@@ -676,13 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        const wpd = Math.ceil(totalWords / plan.targetDays);
-        if (plan.categories.length === 0 || plan.targetDays === 0) wpd = 10;
-        
-        plan.queueNew = poolNew.slice(0, wpd);
         plan.queueReview = poolReview;
-        plan.doneNew = 0;
-        plan.doneReview = 0;
         plan.lastQueueDate = todayStr;
         
         savePlan();
@@ -692,14 +727,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderHardcoreDashboard() {
         const plan = state.hardcorePlan;
         if (!plan) return;
-
-        const currentDay = Math.min(plan.targetDays, Math.floor((new Date(getTodayStr()) - new Date(plan.startDate)) / (1000 * 60 * 60 * 24)) + 1);
         
         const hcDash = document.getElementById('hardcoreDashboard');
+        const currentChunk = plan.dailyChunks[plan.activeDay - 1] || [];
         
         let listHtml = '<div class="list-container hc-scroll-list" style="margin-top: 30px;">';
         
-        const allItems = [...plan.queueReview, ...plan.queueNew];
+        const allItems = [...plan.queueReview, ...currentChunk];
         
         if (allItems.length === 0) {
             listHtml += '<div style="text-align:center; padding: 40px; color: var(--text-secondary);">Trống trơn! Nhấn Đổi Kế Hoạch.</div>';
@@ -739,24 +773,31 @@ document.addEventListener('DOMContentLoaded', () => {
         
         listHtml += '</div>';
 
-        const remainingNew = Math.max(0, plan.queueNew.length - plan.doneNew);
-        const remainingReview = Math.max(0, plan.queueReview.length - plan.doneReview);
+        const remainingNew = currentChunk.filter(i => i.sessionResult !== 'pass').length;
+        const remainingReview = plan.queueReview.filter(i => i.sessionResult !== 'pass').length;
         const totalRemaining = remainingNew + remainingReview;
         
         let btnHtml = '';
         if (totalRemaining === 0) {
-            btnHtml = `<button class="btn-hardcore-start" style="background: var(--success); cursor: default; margin-bottom:15px;">Hoàn Thành Lộ Trình Hiện Tại <i class="fa-solid fa-check-double"></i></button>
-                       <br/><button class="btn-primary" id="btnAdvanceSession" style="background: var(--warning); color: #000;"><i class="fa-solid fa-forward-step"></i> Học Vượt (Kéo Thêm Bài Mới)</button>`;
+            btnHtml = `<button class="btn-hardcore-start" style="background: var(--success); cursor: default; margin-bottom:15px;">Hoàn Thành Lộ Trình Lần Này <i class="fa-solid fa-check-double"></i></button>
+                       <br/><button class="btn-primary" id="btnAdvanceSession" style="background: var(--warning); color: #000;"><i class="fa-solid fa-forward-step"></i> Học Vượt (Qua Ngày Tiếp Theo)</button>`;
         } else {
             btnHtml = `<button class="btn-hardcore-start" id="btnStartHardcoreSession">BẮT ĐẦU CHIẾN ĐẤU (${totalRemaining} Từ) <i class="fa-solid fa-rocket"></i></button>`;
         }
+        
+        let daysHtml = `<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: center;">`;
+        for(let i=1; i<=plan.targetDays; i++) {
+            const isAct = (i === plan.activeDay);
+            daysHtml += `<button class="btn-primary" onclick="window.switchToDay(${i})" style="padding: 8px 15px; font-weight: bold; background: ${isAct ? 'var(--primary)' : 'var(--glass-bg)'}; color: ${isAct ? '#fff' : 'var(--text-main)'}; border: 1px solid ${isAct ? 'var(--primary)' : 'var(--glass-border)'};"><i class="fa-solid fa-${isAct?'fire':'calendar-day'}"></i> Day ${i}</button>`;
+        }
+        daysHtml += `</div>`;
             
         hcDash.innerHTML = `
             <div class="hc-header">
-                <h2>Day ${currentDay} / ${plan.targetDays} 🔥 Lộ Trình Theo Dõi</h2>
-                <button class="btn-primary" id="btnEditPlan"><i class="fa-solid fa-pen"></i> Đổi Kế Hoạch</button>
+                <h2>Lộ Trình 🔥 Chọn Phiên Học Nhánh Nhanh</h2>
+                <button class="btn-primary" id="btnEditPlan"><i class="fa-solid fa-pen"></i> Đổi Lộ Trình</button>
             </div>
-            
+            ${daysHtml}
             <div style="text-align: center; margin: 30px 0;">
                 ${btnHtml}
             </div>
@@ -790,42 +831,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function advanceToNextSession() {
-        if (!confirm("Tuyệt vời! Bạn có muốn chèn thêm mục tiêu mới vào Lộ trình hôm nay luôn không?")) return;
+        if (!confirm("Tuyệt vời! Bạn có muốn nhảy ngay sang ngày tiếp theo (Day " + (state.hardcorePlan.activeDay + 1) + ") trong Lộ trình không?")) return;
         
-        const plan = state.hardcorePlan;
-        let totalWords = 0;
-        let poolNew = [];
-        
-        plan.categories.forEach(cat => {
-            TOEIC_DATA[cat].forEach(w => {
-                totalWords++;
-                const key = getWordKey(cat, w._album, w.tu_vung);
-                const stat = state.wordStats[key];
-                
-                if (!stat || stat.status === 0 || stat.status === undefined) {
-                    poolNew.push({ wordObj: w, key: key, cat: cat, type: 'new' });
-                }
-            });
-        });
-        
-        let wpd = Math.ceil(totalWords / plan.targetDays);
-        if (plan.categories.length === 0 || plan.targetDays === 0) wpd = 10;
-        
-        const newDose = poolNew.slice(0, wpd);
-        if (newDose.length === 0) {
-            alert("Chúc mừng! Bạn đã cày nát toàn bộ tất cả bộ từ vựng, không còn từ mới nào!");
+        if (state.hardcorePlan.activeDay >= state.hardcorePlan.targetDays) {
+            alert("Bạn đã ở ngày cuối cùng của Lộ trình rồi!");
             return;
         }
         
-        plan.queueNew = plan.queueNew.concat(newDose);
+        state.hardcorePlan.activeDay++;
         savePlan();
         renderHardcoreDashboard();
     }
 
     function startHardcoreSession() {
         const plan = state.hardcorePlan;
-        const remainingNew = plan.queueNew.slice(plan.doneNew);
-        const remainingReview = plan.queueReview.slice(plan.doneReview);
+        const currentChunk = plan.dailyChunks[plan.activeDay - 1] || [];
+        const remainingNew = currentChunk.filter(i => i.sessionResult !== 'pass');
+        const remainingReview = plan.queueReview.filter(i => i.sessionResult !== 'pass');
         
         const sessionWords = [...remainingReview, ...remainingNew];
         
@@ -897,42 +919,117 @@ document.addEventListener('DOMContentLoaded', () => {
         
         els.currentAlbumTitle.textContent = `🔥 Khô Máu: Task ${state.hardcoreIndex + 1}/${state.hardcoreSession.length} | ${item.type === 'new' ? '💎 Từ Mới' : '🔄 Ôn Lại'}`;
 
+        // 1. Generate Day List HTML
+        let dayListHtml = '';
+        const currentDay = state.hardcorePlan.activeDay;
+        for (let i = 1; i <= state.hardcorePlan.targetDays; i++) {
+            let cls = '';
+            let icon = '<i class="fa-regular fa-circle"></i>';
+            if (i < currentDay) { cls = 'past'; icon = '<i class="fa-solid fa-circle-check"></i>'; }
+            else if (i === currentDay) { cls = 'active'; icon = '<i class="fa-solid fa-fire"></i>'; }
+            dayListHtml += `<div class="hc-day-item ${cls}" style="cursor: pointer;" onclick="window.switchToDay(${i})" title="Chuyển sang Day ${i}">${icon} Day ${i}</div>`;
+        }
+
+        // 2. Generate Map HTML
+        let mapHtml = '';
+        state.hardcoreSession.forEach((sItem, idx) => {
+            let cls = '';
+            if (idx === state.hardcoreIndex) cls = 'current';
+            else if (sItem.sessionResult === 'pass') cls = 'pass';
+            else if (sItem.sessionResult === 'fail') cls = 'fail';
+            mapHtml += `<div class="hc-map-dot ${cls}" title="${sItem.wordObj.tu_vung.replace(/<[^>]+>/g, '')}"></div>`;
+        });
+        
+        // 3. Timer Formatter
+        const formatTime = (totalSeconds) => {
+            if(totalSeconds < 0) totalSeconds = 0;
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        };
+        const playPauseIcon = state.hcTimerIsRunning ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play" style="margin-left: 3px;"></i>';
+        const startValue = state.hcTimerMode === 'down' ? Math.floor(state.hcTimerValue / 60) : 10;
+
         els.learningView.innerHTML = `
-            <div class="flashcard-container hardcore-theme">
-                <div class="progress-bar">
-                    <div class="progress-fill warning" style="width: ${progress}%"></div>
+            <div class="hc-learning-layout">
+                <!-- Left Sidebar -->
+                <div class="hc-sidebar-left">
+                    <div class="hc-widget-title"><i class="fa-solid fa-calendar-days"></i> Lộ trình (${state.hardcorePlan.targetDays} Ngày)</div>
+                    <div class="hc-day-list">
+                        ${dayListHtml}
+                    </div>
                 </div>
-                
-                <div class="card" id="flashcard">
-                    <div class="card-inner">
-                        <div class="card-front">
-                            <div class="word-main" style="color: var(--danger); font-size: 3.5rem;">${sanitizeHTML(word.tu_vung)}</div>
-                            <button class="btn-audio play-audio-btn"><i class="fa-solid fa-volume-high"></i></button>
-                            ${item.type === 'review' ? '<p style="color:var(--warning); margin-top:20px; font-weight: bold;"><i class="fa-solid fa-triangle-exclamation"></i> Kiểm tra trí nhớ Cũ</p>' : '<p style="color:var(--primary); margin-top:20px; font-weight: bold;"><i class="fa-solid fa-gem"></i> Học Từ Mới</p>'}
+
+                <!-- Center Panel (Flashcard) -->
+                <div class="hc-center-panel">
+                    <div class="flashcard-container hardcore-theme" style="width: 100%;">
+                        <div class="progress-bar">
+                            <div class="progress-fill warning" style="width: ${progress}%"></div>
                         </div>
-                        <div class="card-back">
-                            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start; margin-bottom: 15px;">
-                                <h3 style="flex-grow: 1;">${sanitizeHTML(word.tu_vung)}</h3>
-                                <button class="btn-audio play-audio-btn" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;"><i class="fa-solid fa-volume-high"></i></button>
+                        
+                        <div class="card" id="flashcard">
+                            <div class="card-inner">
+                                <div class="card-front">
+                                    <div class="word-main" style="color: var(--danger); font-size: 3.5rem;">${sanitizeHTML(word.tu_vung)}</div>
+                                    <button class="btn-audio play-audio-btn"><i class="fa-solid fa-volume-high"></i></button>
+                                    ${item.type === 'review' ? '<p style="color:var(--warning); margin-top:20px; font-weight: bold;"><i class="fa-solid fa-triangle-exclamation"></i> Kiểm tra trí nhớ Cũ</p>' : '<p style="color:var(--primary); margin-top:20px; font-weight: bold;"><i class="fa-solid fa-gem"></i> Học Từ Mới</p>'}
+                                </div>
+                                <div class="card-back">
+                                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start; margin-bottom: 15px;">
+                                        <h3 style="flex-grow: 1;">${sanitizeHTML(word.tu_vung)}</h3>
+                                        <button class="btn-audio play-audio-btn" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;"><i class="fa-solid fa-volume-high"></i></button>
+                                    </div>
+                                    <div class="word-meta">
+                                        <span class="badge-pos">${sanitizeHTML(word.tu_loai || 'vocab')}</span>
+                                        <span class="pronunciation">${sanitizeHTML(word.phien_am || '')}</span>
+                                    </div>
+                                    <div class="word-meaning">${sanitizeHTML(word.y_nghia)}</div>
+                                    ${examplesHtml}
+                                </div>
                             </div>
-                            <div class="word-meta">
-                                <span class="badge-pos">${sanitizeHTML(word.tu_loai || 'vocab')}</span>
-                                <span class="pronunciation">${sanitizeHTML(word.phien_am || '')}</span>
-                            </div>
-                            <div class="word-meaning">${sanitizeHTML(word.y_nghia)}</div>
-                            ${examplesHtml}
+                        </div>
+                        
+                        <div class="controls" style="justify-content: space-around; gap: 20px;">
+                            <button class="btn-mark-known btn-hc-fail" id="btnHcReject" style="flex:1; background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5;">
+                                <i class="fa-solid fa-xmark"></i> Quên Chữ Này
+                            </button>
+                            
+                            <button class="btn-mark-known btn-hc-pass" id="btnHcPass" style="flex:1; background: #dcfce7; color: #22c55e; border: 1px solid #86efac;">
+                                <i class="fa-solid fa-check-double"></i> Đã Nhớ Rõ
+                            </button>
                         </div>
                     </div>
                 </div>
-                
-                <div class="controls" style="justify-content: space-around; gap: 20px;">
-                    <button class="btn-mark-known btn-hc-fail" id="btnHcReject" style="flex:1; background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5;">
-                        <i class="fa-solid fa-xmark"></i> Quên Chữ Này
-                    </button>
-                    
-                    <button class="btn-mark-known btn-hc-pass" id="btnHcPass" style="flex:1; background: #dcfce7; color: #22c55e; border: 1px solid #86efac;">
-                        <i class="fa-solid fa-check-double"></i> Đã Nhớ Rõ
-                    </button>
+
+                <!-- Right Sidebar -->
+                <div class="hc-sidebar-right">
+                    <!-- Timer Widget -->
+                    <div class="hc-widget">
+                        <div class="hc-widget-title"><i class="fa-solid fa-stopwatch"></i> Bấm giờ tập trung</div>
+                        <div class="hc-timer-display" id="hcTimerDisplay">${formatTime(state.hcTimerValue)}</div>
+                        
+                        <div class="hc-timer-controls">
+                            <button class="btn-timer" id="btnTimerPlayPause" title="Play/Pause">${playPauseIcon}</button>
+                            <button class="btn-timer" id="btnTimerReset" title="Làm mới"><i class="fa-solid fa-rotate-right"></i></button>
+                        </div>
+                        
+                        <div class="hc-timer-setup">
+                            Đếm ngược: <input type="number" id="hcTimerInput" value="${startValue}" min="1" max="120"> phút
+                        </div>
+                    </div>
+
+                    <!-- Progress Map Widget -->
+                    <div class="hc-widget">
+                        <div class="hc-widget-title"><i class="fa-solid fa-map-location-dot"></i> Bản đồ tiến độ</div>
+                        <div class="hc-map-grid">
+                            ${mapHtml}
+                        </div>
+                        <div style="display:flex; justify-content: space-between; margin-top: 15px; font-size: 0.8rem; color: var(--text-secondary);">
+                            <span style="display:flex; align-items:center; gap:5px;"><div class="hc-map-dot pass" style="width:12px; height:12px;"></div> Nhớ</span>
+                            <span style="display:flex; align-items:center; gap:5px;"><div class="hc-map-dot fail" style="width:12px; height:12px;"></div> Quên</span>
+                            <span style="display:flex; align-items:center; gap:5px;"><div class="hc-map-dot" style="width:12px; height:12px;"></div> Chờ</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -965,8 +1062,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnHcPass').addEventListener('click', () => {
              processSrs(item.key, true);
              item.sessionResult = 'pass';
-             if (item.type === 'new') state.hardcorePlan.doneNew++;
-             else state.hardcorePlan.doneReview++;
              savePlan();
              state.hardcoreIndex++;
              renderHardcoreFlashcard();
@@ -977,13 +1072,80 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnHcReject').addEventListener('click', () => {
              processSrs(item.key, false);
              item.sessionResult = 'fail';
-             if (item.type === 'new') state.hardcorePlan.doneNew++;
-             else state.hardcorePlan.doneReview++;
              savePlan();
              state.hardcoreIndex++;
              renderHardcoreFlashcard();
              renderHardcoreDashboard();
         });
+        
+        // Timer Logic
+        const btnTimerPlayPause = document.getElementById('btnTimerPlayPause');
+        const btnTimerReset = document.getElementById('btnTimerReset');
+        const hcTimerInput = document.getElementById('hcTimerInput');
+        const hcTimerDisplay = document.getElementById('hcTimerDisplay');
+
+        const updateTimerDisplay = () => { hcTimerDisplay.innerText = formatTime(state.hcTimerValue); };
+
+        btnTimerPlayPause.addEventListener('click', () => {
+            if (state.hcTimerIsRunning) {
+                clearInterval(state.hcTimerInterval);
+                state.hcTimerIsRunning = false;
+                btnTimerPlayPause.innerHTML = '<i class="fa-solid fa-play" style="margin-left: 3px;"></i>';
+            } else {
+                state.hcTimerIsRunning = true;
+                btnTimerPlayPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                
+                // If it's starting fresh and is down mode, fetch from input
+                if (state.hcTimerValue === 0 && hcTimerInput.value > 0 && state.hcTimerMode === 'down') {
+                    state.hcTimerValue = parseInt(hcTimerInput.value) * 60;
+                    updateTimerDisplay();
+                }
+
+                state.hcTimerInterval = setInterval(() => {
+                    if (state.hcTimerMode === 'down') {
+                        if (state.hcTimerValue > 0) state.hcTimerValue--;
+                    } else {
+                        state.hcTimerValue++;
+                    }
+                    updateTimerDisplay();
+                }, 1000);
+            }
+        });
+
+        btnTimerReset.addEventListener('click', () => {
+            clearInterval(state.hcTimerInterval);
+            state.hcTimerIsRunning = false;
+            btnTimerPlayPause.innerHTML = '<i class="fa-solid fa-play" style="margin-left: 3px;"></i>';
+            const inputVal = parseInt(hcTimerInput.value);
+            if (!isNaN(inputVal) && inputVal > 0) {
+                state.hcTimerMode = 'down';
+                state.hcTimerValue = inputVal * 60;
+            } else {
+                state.hcTimerMode = 'up';
+                state.hcTimerValue = 0;
+            }
+            updateTimerDisplay();
+        });
+
+        hcTimerInput.addEventListener('change', (e) => {
+            if (!state.hcTimerIsRunning) {
+                const inputVal = parseInt(e.target.value);
+                if (!isNaN(inputVal) && inputVal > 0) {
+                    state.hcTimerMode = 'down';
+                    state.hcTimerValue = inputVal * 60;
+                } else {
+                    state.hcTimerMode = 'up';
+                    state.hcTimerValue = 0;
+                }
+                updateTimerDisplay();
+            }
+        });
+
+        // If the user hasn't started the timer yet but it's first load, initialize state
+        if (!state.hcTimerIsRunning && state.hcTimerValue === 0 && parseInt(hcTimerInput.value) > 0) {
+             state.hcTimerValue = parseInt(hcTimerInput.value) * 60;
+             updateTimerDisplay();
+        }
     }
 
     function bindEvents() {
@@ -1065,21 +1227,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.currentMainView === 'learning' || state.currentMainView === 'hardcore_learning') {
                 // Audio Hotkeys
                 if (key === state.hotkeyVocab) {
-                    const btnAudio = document.querySelector('.play-audio-btn');
+                    const btnAudio = els.learningView.querySelector('.play-audio-btn');
                     if (btnAudio) btnAudio.click();
                 } else if (key === state.hotkeyExample) {
-                    const btnExample = document.querySelector('.btn-play-example');
+                    const btnExample = els.learningView.querySelector('.btn-play-example');
                     if (btnExample) btnExample.click();
                 }
 
                 // Hardcore Shortcuts
                 if (state.currentMainView === 'hardcore_learning') {
-                    if (e.key === 'ArrowRight') {
-                        const btn = document.getElementById('btnHcPass');
-                        if (btn) btn.click();
-                    } else if (e.key === 'ArrowLeft') {
-                        const btn = document.getElementById('btnHcReject');
-                        if (btn) btn.click();
+                    if (e.key === 'ArrowRight' && state.hardcoreIndex < state.hardcoreSession.length - 1) {
+                        state.hardcoreIndex++;
+                        renderHardcoreFlashcard();
+                    } else if (e.key === 'ArrowLeft' && state.hardcoreIndex > 0) {
+                        state.hardcoreIndex--;
+                        renderHardcoreFlashcard();
                     } else if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                         e.preventDefault(); 
                         const card = document.getElementById('flashcard');
