@@ -47,4 +47,29 @@
 
 <p align="left">
   <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original.svg" alt="html5" width="40" height="40"/> &nbsp;
-  <img src="https://raw.githubusercontent
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/css3/css3-original.svg" alt="css3" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg" alt="javascript" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/powershell/powershell-original.svg" alt="powershell" width="40" height="40"/> &nbsp;
+</p>
+
+* **Front-end:** HTML5, CSS3, JavaScript.
+* **Data Processing:** Python (Scripts cào, xử lý dữ liệu từ ETS).
+* **Automation:** PowerShell (Tối ưu hóa quy trình cập nhật).
+
+---
+
+## 📂 Cấu trúc dự án
+
+<details open>
+  <summary>📂 Danh mục file quan trọng</summary>
+
+```text
+├── Toeic-Web-App/
+│   ├── index.html          # Giao diện chính của ứng dụng
+│   ├── style.css           # Định dạng giao diện
+│   ├── app.js              # Logic điều khiển Flashcards
+│   ├── data.js             # Cầu nối dữ liệu
+│   └── demo.gif            # Ảnh động minh họa ứng dụng
+├── scripts/                # Các script hỗ trợ (Python, PowerShell)
+└── data/                   # Dữ liệu từ vựng JSON/CSV
