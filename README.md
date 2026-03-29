@@ -1,38 +1,60 @@
-# Toeic
-# 🎓 TOEIC Flashcards Mastery 2026
+# 🎓 TOEIC Flashcards Mastery 2026 - ETS 2024 Specialized
 
-![GitHub last commit](https://img.shields.io/github/last-commit/duynamo/Toeic?style=for-the-badge&color=orange)
-![GitHub repo size](https://img.shields.io/github/repo-size/duynamo/Toeic?style=for-the-badge&color=blue)
-![License](https://img.shields.io/github/license/duynamo/Toeic?style=for-the-badge&color=green)
+<p align="center">
+  <img src="https://capsule-render.vercel.app/render?type=soft&color=auto&height=200&section=header&text=TOEIC%20Flashcards%20Mastery&fontSize=60&animation=fadeIn&fontAlignY=45" alt="TOEIC Flashcards Mastery Banner" />
+</p>
 
-**TOEIC Flashcards Mastery** là một ứng dụng web học từ vựng thông minh, được thiết kế tối ưu để giúp người học chinh phục các kỳ thi TOEIC (đặc biệt là bộ đề **ETS 2024**) một cách hiệu quả nhất.
+<p align="center">
+  <img src="https://img.shields.io/github/last-commit/duynamo/Toeic?style=for-the-badge&color=orange&logo=github" alt="GitHub last commit" />
+  <img src="https://img.shields.io/github/repo-size/duynamo/Toeic?style=for-the-badge&color=blue&logo=github" alt="GitHub repo size" />
+  <img src="https://img.shields.io/github/languages/top/duynamo/Toeic?style=for-the-badge&color=yellow&logo=javascript" alt="GitHub top language" />
+  <img src="https://img.shields.io/github/license/duynamo/Toeic?style=for-the-badge&color=green&logo=github" alt="License" />
+</p>
 
-🚀 **Dùng thử ngay tại:** [https://duynamo.github.io/Toeic/Toeic-Web-App/](https://duynamo.github.io/Toeic/Toeic-Web-App/)
-
----
-
-## ✨ Tính năng nổi bật
-
-* **🎯 Kho dữ liệu ETS 2024:** Tích hợp sẵn bộ từ vựng mới nhất từ các đề thi ETS 2024 (LC & RC).
-* **🔊 Giọng đọc AI đa dạng:** Hỗ trợ nhiều giọng đọc (Eric, Emma...) giúp luyện kỹ năng Listening chuẩn xác.
-* **📱 Giao diện Responsive:** Hiển thị mượt mà trên cả điện thoại và máy tính.
-* **⚡ Chế độ "Khô Máu" (Hardcore):** Giúp tăng cường khả năng ghi nhớ thông qua các vòng lặp từ vựng nhanh.
-* **📊 Phân loại thông minh:** Từ vựng được chia theo chủ đề: Listening, Reading, Part 7, v.v.
+<p align="center">
+  <h3>🎯 Dự án chuyên sâu về từ vựng TOEIC dựa trên bộ đề ETS 2024 mới nhất.</h3>
+</p>
 
 ---
 
-## 🛠️ Công nghệ sử dụng
+## 🚀 Đề xuất trải nghiệm
 
-Dự án được xây dựng dựa trên sự kết hợp giữa sức mạnh của Python (xử lý dữ liệu) và Web Front-end hiện đại:
+👉 **Học ngay tại:** [https://duynamo.github.io/Toeic/Toeic-Web-App/](https://duynamo.github.io/Toeic/Toeic-Web-App/)
 
-* **Front-end:** HTML5, CSS3 (Modern UI), JavaScript (ES6+).
-* **Data Processing:** Python (Scripts cào dữ liệu và chuyển đổi CSV/JSON).
-* **Automation:** PowerShell scripts giúp tối ưu hóa luồng làm việc.
-* **Icons:** Font Awesome 6.
+---
+
+## ✨ Tính năng nổi bật (Duy có thể thêm icon)
+
+* **🎯 Kho dữ liệu ETS 2024:** * 🎧 **Listening (LC):** Từ vựng Part 1, 2, 3, 4.
+  * 📖 **Reading (RC):** Từ vựng Part 5, 6, đặc biệt là **Part 7**.
+* **🔊 Giọng đọc AI đa dạng:** Tích hợp **Google TTS**, **AWS Polly**, **Microsoft Azure TTS**... giúp luyện nghe giọng Mỹ, Anh, Úc chuẩn xác.
+* **⚡ Chế độ "Khô Máu" (Hardcore):** Tăng cường khả năng ghi nhớ nhanh thông qua các vòng lặp từ vựng áp lực cao.
+* **📱 Giao diện Responsive:** Hiển thị tối ưu trên mọi thiết bị (PC, Máy tính bảng, Điện thoại).
+* **📊 Phân loại thông minh:** Dữ liệu JSON được phân chia rõ ràng theo từng chủ đề.
+
+---
+
+## 🛠️ Công nghệ & Ngôn ngữ (Sử dụng Icon cho đẹp)
+
+<p align="left">
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original.svg" alt="html5" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/css3/css3-original.svg" alt="css3" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg" alt="javascript" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/> &nbsp;
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/powershell/powershell-original.svg" alt="powershell" width="40" height="40"/> &nbsp;
+</p>
+
+* **Front-end:** HTML5, CSS3, JavaScript (Core logic).
+* **Data Processing:** Python (Scripts cào, xử lý CSV/JSON).
+* **Automation:** PowerShell (Tối ưu luồng công việc).
+* **AI TTS:** Các API/dịch vụ giọng đọc thông minh.
 
 ---
 
 ## 📂 Cấu trúc dự án
+
+<details open>
+  <summary>📂 Danh mục file quan trọng</summary>
 
 ```text
 ├── Toeic-Web-App/
