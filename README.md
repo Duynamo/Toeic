@@ -23,7 +23,7 @@
 
 ---
 
-## ✨ Tính năng nổi bật (Duy có thể thêm icon)
+## ✨ Tính năng nổi bật 
 
 * **🎯 Kho dữ liệu ETS 2024:** * 🎧 **Listening (LC):** Từ vựng Part 1, 2, 3, 4.
   * 📖 **Reading (RC):** Từ vựng Part 5, 6, đặc biệt là **Part 7**.
