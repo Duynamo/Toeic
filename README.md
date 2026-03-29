@@ -1,7 +1,7 @@
 # 🎓 TOEIC Flashcards Mastery 2026 - ETS 2024 Specialized
 
 <p align="center">
-  <img src="https://capsule-render.vercel.app/render?type=soft&color=auto&height=200&section=header&text=TOEIC%20Flashcards%20Mastery&fontSize=60&animation=fadeIn&fontAlignY=45" alt="TOEIC Flashcards Mastery Banner" />
+  <img src="https://img-chooser.herokuapp.com/https://imgur.com/a/your_mon_album_id" alt="Random Mon Icon Banner" height="200px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
 </p>
 
 <p align="center">
@@ -17,15 +17,24 @@
 
 ---
 
-## 🚀 Đề xuất trải nghiệm
+## 🚀 Trải nghiệm ngay
 
-👉 **Học ngay tại:** [https://duynamo.github.io/Toeic/Toeic-Web-App/](https://duynamo.github.io/Toeic/Toeic-Web-App/)
+👉 **Học tại:** [https://duynamo.github.io/Toeic/Toeic-Web-App/](https://duynamo.github.io/Toeic/Toeic-Web-App/)
 
 ---
 
-## ✨ Tính năng nổi bật 
+## 🎬 Demo Hoạt Động
 
-* **🎯 Kho dữ liệu ETS 2024:** * 🎧 **Listening (LC):** Từ vựng Part 1, 2, 3, 4.
+<p align="center">
+  <img src="./Toeic-Web-App/demo.gif" alt="TOEIC Flashcards Mastery Demo" width="600px" style="border-radius: 8px; border: 1px solid #ddd;" />
+</p>
+
+---
+
+## ✨ Tính năng nổi bật
+
+* **🎯 Kho dữ liệu ETS 2024:**
+  * 🎧 **Listening (LC):** Từ vựng Part 1, 2, 3, 4.
   * 📖 **Reading (RC):** Từ vựng Part 5, 6, đặc biệt là **Part 7**.
 * **🔊 Giọng đọc AI đa dạng:** Tích hợp **Google TTS**, **AWS Polly**, **Microsoft Azure TTS**... giúp luyện nghe giọng Mỹ, Anh, Úc chuẩn xác.
 * **⚡ Chế độ "Khô Máu" (Hardcore):** Tăng cường khả năng ghi nhớ nhanh thông qua các vòng lặp từ vựng áp lực cao.
@@ -34,7 +43,7 @@
 
 ---
 
-## 🛠️ Công nghệ & Ngôn ngữ (Sử dụng Icon cho đẹp)
+## 🛠️ Công nghệ & Ngôn ngữ
 
 <p align="left">
   <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original.svg" alt="html5" width="40" height="40"/> &nbsp;
@@ -53,7 +62,7 @@
 
 ## 📂 Cấu trúc dự án
 
-<details open>
+<details>
   <summary>📂 Danh mục file quan trọng</summary>
 
 ```text
@@ -61,6 +70,7 @@
 │   ├── index.html          # Giao diện chính của ứng dụng
 │   ├── style.css           # Định dạng giao diện (Dark mode & Animations)
 │   ├── app.js              # Logic điều khiển Flashcards và giọng đọc
-│   └── data.js             # File cầu nối dữ liệu
+│   ├── data.js             # File cầu nối dữ liệu
+│   └── demo.gif            # File GIF demo hoạt động
 ├── scripts/                # Các script hỗ trợ (Python, PowerShell)
 └── data/                   # Dữ liệu từ vựng (CSV, JSON) từ ETS 2024
