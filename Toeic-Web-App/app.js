@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         hotkeyVocab: localStorage.getItem('TOEIC_HOTKEY_VOCAB') || 'v',
         hotkeyExample: localStorage.getItem('TOEIC_HOTKEY_EXAMPLE') || 'p',
         wordStats: {}, // { status: 0=new, 1=review, 2=mastered, step: 0, nextDate: timestamp }
-        hardcorePlan: null, // { categories: [], targetDays: 30, startDate: ts, lastQueueDate: ts, queue: [], doneToday: 0 }
+        hardcorePlans: {}, // { id: { name, categories: [], targetDays: 30, startDate: ts, lastQueueDate: ts, queue: [], doneToday: 0 } }
+        activePlanId: localStorage.getItem('TOEIC_ACTIVE_PLAN_ID') || null,
         // New timer state
         hcTimerValue: 0,
         hcTimerInterval: null,
@@ -42,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stored) {
             state.knownWords = new Set(JSON.parse(stored));
         }
-        
+
         const storedStats = localStorage.getItem('TOEIC_WORD_STATS');
         if (storedStats) {
             state.wordStats = JSON.parse(storedStats);
@@ -54,20 +55,40 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('TOEIC_WORD_STATS', JSON.stringify(state.wordStats));
         }
 
-        const storedPlan = localStorage.getItem('TOEIC_HARDCORE_PLAN');
-        if (storedPlan) {
-            state.hardcorePlan = JSON.parse(storedPlan);
+        // Migration logic: Single plan to Multiple plans
+        const storedPlans = localStorage.getItem('TOEIC_HARDCORE_PLANS');
+        if (storedPlans) {
+            state.hardcorePlans = JSON.parse(storedPlans);
+        } else {
+            const oldPlan = localStorage.getItem('TOEIC_HARDCORE_PLAN');
+            if (oldPlan) {
+                const planObj = JSON.parse(oldPlan);
+                const planId = 'plan_' + Date.now();
+                state.hardcorePlans[planId] = { ...planObj, id: planId, name: "Lộ trình mặc định" };
+                state.activePlanId = planId;
+                localStorage.setItem('TOEIC_ACTIVE_PLAN_ID', planId);
+                localStorage.setItem('TOEIC_HARDCORE_PLANS', JSON.stringify(state.hardcorePlans));
+                // Optionally remove old plan to clean up
+                // localStorage.removeItem('TOEIC_HARDCORE_PLAN');
+            }
         }
     } catch (e) {
         console.warn("Could not load progress", e);
     }
 
     function saveStats() {
-        try { localStorage.setItem('TOEIC_WORD_STATS', JSON.stringify(state.wordStats)); } catch (e) {}
+        try { localStorage.setItem('TOEIC_WORD_STATS', JSON.stringify(state.wordStats)); } catch (e) { }
     }
 
-    function savePlan() {
-        try { localStorage.setItem('TOEIC_HARDCORE_PLAN', JSON.stringify(state.hardcorePlan)); } catch (e) {}
+    function savePlans() {
+        try {
+            localStorage.setItem('TOEIC_HARDCORE_PLANS', JSON.stringify(state.hardcorePlans));
+            if (state.activePlanId) {
+                localStorage.setItem('TOEIC_ACTIVE_PLAN_ID', state.activePlanId);
+            } else {
+                localStorage.removeItem('TOEIC_ACTIVE_PLAN_ID');
+            }
+        } catch (e) { }
     }
 
     function saveProgress() {
@@ -75,14 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('TOEIC_KNOWN_WORDS', JSON.stringify(Array.from(state.knownWords)));
             saveStats(); // Sync stats too
         } catch (e) {
-             console.warn("Could not save progress", e);
+            console.warn("Could not save progress", e);
         }
     }
 
     function getWordKey(cat, album, word) {
         return `${cat}_${album}_${word}`;
     }
-    
+
     // For legacy usages:
     function getWordKeyObj(wordObj) {
         return getWordKey(state.currentCategory, wordObj._album, wordObj.tu_vung);
@@ -91,12 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pre-process data
     state.categories.forEach(cat => {
         if (!TOEIC_DATA[cat]) return;
-        
+
         // Handle PowerShell 5.1 ConvertFrom-Json wrapping arrays in .value property
         if (TOEIC_DATA[cat] && TOEIC_DATA[cat].value && Array.isArray(TOEIC_DATA[cat].value)) {
             TOEIC_DATA[cat] = TOEIC_DATA[cat].value;
         }
-        
+
         const albumSet = new Set();
         if (Array.isArray(TOEIC_DATA[cat])) {
             TOEIC_DATA[cat].forEach(word => {
@@ -139,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('TOEIC_VOICE', state.selectedVoice);
             });
         }
-        
+
         const btnSettings = document.getElementById('btnSettings');
         const settingsModal = document.getElementById('settingsModal');
         const btnCloseSettings = document.getElementById('btnCloseSettings');
@@ -164,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 settingsModal.classList.remove('open');
             });
         }
-        
+
         renderTopNav();
         switchMainView('dashboard');
         bindEvents();
@@ -181,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.classList.add('active');
                 state.currentCategory = cat;
                 els.searchQuery = '';
-                if(els.searchInput) els.searchInput.value = '';
+                if (els.searchInput) els.searchInput.value = '';
                 switchMainView('dashboard');
             });
             els.navTabs.appendChild(btn);
@@ -190,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function switchMainView(view) {
         state.currentMainView = view;
-        
+
         if (view !== 'hardcore_learning' && state.hcTimerInterval) {
             clearInterval(state.hcTimerInterval);
             state.hcTimerIsRunning = false;
@@ -199,10 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
         els.learningHeader.style.display = 'none';
         els.learningView.style.display = 'none';
         els.albumGridView.style.display = 'none';
-        
+
         const hcDash = document.getElementById('hardcoreDashboard');
         if (hcDash) hcDash.style.display = 'none';
-        
+
         if (view === 'dashboard') {
             els.albumGridView.style.display = 'block';
             renderAlbumGrid();
@@ -217,9 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatAlbumTitle(album) {
-        if(!album) return "";
+        if (!album) return "";
         let cleanAlbum = album;
-        if(album.startsWith("ETS-")) {
+        if (album.startsWith("ETS-")) {
             cleanAlbum = album.replace("ETS-", "").replace("-", " ");
         }
         return cleanAlbum;
@@ -228,9 +249,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderAlbumGrid() {
         els.gridCategoryTitle.textContent = state.currentCategory.replace(/_/g, ' ');
         els.albumGrid.innerHTML = '';
-        
+
         let albums = state.albums[state.currentCategory] || [];
-        
+
         if (state.searchQuery) {
             albums = albums.filter(a => a.toLowerCase().includes(state.searchQuery.toLowerCase()));
         }
@@ -243,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         albums.forEach(album => {
             const wordsInAlbum = TOEIC_DATA[state.currentCategory].filter(w => w._album === album);
             const totalWords = wordsInAlbum.length;
-            
+
             // Calculate known words
             let knownCount = 0;
             wordsInAlbum.forEach(w => {
@@ -255,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const card = document.createElement('div');
             card.className = 'album-card';
-            
+
             card.innerHTML = `
                 <div class="album-title">${formatAlbumTitle(album)}</div>
                 <div class="album-subtitle"><i class="fa-solid fa-layer-group"></i> Trích từ bộ ${state.currentCategory.replace(/_/g, ' ')}</div>
@@ -268,11 +289,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <button class="btn-learn-album" style="margin-top: 25px;"><i class="fa-solid fa-play"></i> Học album này</button>
             `;
-            
+
             card.querySelector('.btn-learn-album').addEventListener('click', () => {
                 loadAlbum(state.currentCategory, album);
             });
-            
+
             els.albumGrid.appendChild(card);
         });
     }
@@ -282,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.currentAlbum = albumName;
         state.words = TOEIC_DATA[category].filter(w => w._album === albumName);
         state.currentIndex = 0;
-        
+
         els.currentAlbumTitle.textContent = `${category.replace(/_/g, ' ')} / ${formatAlbumTitle(albumName)}`;
         switchMainView('learning');
     }
@@ -331,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             enText = sanitizeHTML(word.vi_du_them[0].phrase);
             viText = sanitizeHTML(word.vi_du_them[0].meaning);
         } else if (Array.isArray(word.song_ngu) && word.song_ngu.length > 0) {
-             enText = sanitizeHTML(word.song_ngu[0]);
+            enText = sanitizeHTML(word.song_ngu[0]);
         }
 
         if (enText) {
@@ -359,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const word = state.words[state.currentIndex];
         const progress = ((state.currentIndex + 1) / state.words.length) * 100;
         const examplesHtml = getExamplesHtml(word);
-        
+
         const wKey = getWordKeyObj(word);
         const isKnown = state.knownWords.has(wKey);
 
@@ -416,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnPrev = document.querySelector('.btn-prev');
         const btnNext = document.querySelector('.btn-next');
         const btnMarkKnown = document.getElementById('btnMarkKnown');
-        
+
         if (state.currentIndex > 0) {
             btnPrev.removeAttribute('disabled');
         }
@@ -474,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         btnNext.addEventListener('click', () => {
-             if (state.currentIndex < state.words.length - 1) {
+            if (state.currentIndex < state.words.length - 1) {
                 state.currentIndex++;
                 renderLearningContent();
             }
@@ -483,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderList() {
         let html = '<div class="list-container">';
-        
+
         state.words.forEach((word) => {
             const examplesHtml = getExamplesHtml(word);
             const plainWord = word.tu_vung.replace(/<[^>]+>/g, '');
@@ -504,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="list-meaning-col">
                         <div class="list-meaning">${sanitizeHTML(word.y_nghia)}</div>
-                        ${examplesHtml ? `<div class="list-example">${examplesHtml.replace(/class="examples"/,'')}</div>` : ''}
+                        ${examplesHtml ? `<div class="list-example">${examplesHtml.replace(/class="examples"/, '')}</div>` : ''}
                     </div>
                     <div class="list-actions">
                         <button class="list-mark-known ${isKnown ? 'is-known' : ''}" data-key="${wKey}" title="Đánh dấu đã thuộc">
@@ -552,14 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function playAudio(text, textElement, ipaElement) {
         if (!window.speechSynthesis) return;
-        
+
         window.speechSynthesis.cancel();
         document.querySelectorAll('.highlight-word').forEach(el => el.classList.remove('highlight-word'));
-        
+
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
         utterance.rate = 0.9;
-        
+
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
             const voice = voices.find(v => v.name.includes(state.selectedVoice));
@@ -567,18 +588,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 utterance.voice = voice;
             }
         }
-        
+
         if (textElement) {
             utterance.onboundary = (e) => {
                 if (e.name === 'word') {
                     if (textElement) textElement.querySelectorAll('.word').forEach(w => w.classList.remove('highlight-word'));
                     if (ipaElement) ipaElement.querySelectorAll('.word').forEach(w => w.classList.remove('highlight-word'));
-                    
+
                     const charIndex = e.charIndex;
                     const spans = Array.from(textElement.querySelectorAll('.word'));
                     let targetSpan = null;
                     let targetIdx = 0;
-                    for(let i=0; i<spans.length; i++) {
+                    for (let i = 0; i < spans.length; i++) {
                         const cidx = parseInt(spans[i].getAttribute('data-cidx'));
                         if (charIndex >= cidx) {
                             targetSpan = spans[i];
@@ -588,33 +609,38 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     if (targetSpan) targetSpan.classList.add('highlight-word');
-                    
+
                     if (ipaElement) {
                         const ipaSpans = ipaElement.querySelectorAll('.word');
                         if (ipaSpans[targetIdx]) ipaSpans[targetIdx].classList.add('highlight-word');
                     }
                 }
             };
-            
+
             utterance.onend = () => {
                 if (textElement) textElement.querySelectorAll('.word').forEach(w => w.classList.remove('highlight-word'));
                 if (ipaElement) ipaElement.querySelectorAll('.word').forEach(w => w.classList.remove('highlight-word'));
             };
         }
-        
+
         window.speechSynthesis.speak(utterance);
     }
 
     // -- HARDCORE MODE LOGIC --
     function getTodayStr() {
         const d = new Date();
-        return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
     }
 
     function openHardcoreMode() {
-        if (!state.hardcorePlan) {
-            populateWizardCategories();
-            document.getElementById('wizardModal').classList.add('open');
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan) {
+            if (Object.keys(state.hardcorePlans).length > 0) {
+                renderPlanManager();
+            } else {
+                populateWizardCategories();
+                document.getElementById('wizardModal').classList.add('open');
+            }
         } else {
             generateTodayQueue();
             switchMainView('hardcore');
@@ -625,43 +651,102 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('wizardCategories');
         if (!container) return;
         container.innerHTML = '';
+
         state.categories.forEach(cat => {
-            const label = document.createElement('label');
-            label.className = 'cat-cb-item';
-            label.innerHTML = `<input type="checkbox" value="${cat}" checked> ${cat.replace(/_/g, ' ')} (${TOEIC_DATA[cat].length} từ)`;
-            container.appendChild(label);
+            const albums = state.albums[cat] || [];
+            if (albums.length === 0) return;
+
+            const group = document.createElement('div');
+            group.className = 'hc-category-group';
+
+            const header = document.createElement('div');
+            header.className = 'hc-category-header';
+            header.innerHTML = `
+                <input type="checkbox" class="cat-master-cb" data-cat="${cat}">
+                <i class="fa-solid fa-folder-open"></i> ${cat.replace(/_/g, ' ')}
+            `;
+
+            const albumList = document.createElement('div');
+            albumList.className = 'hc-album-list';
+
+            albums.forEach(album => {
+                const albumWords = TOEIC_DATA[cat].filter(w => w._album === album).length;
+                const albumItem = document.createElement('label');
+                albumItem.className = 'hc-album-item';
+                albumItem.innerHTML = `
+                    <input type="checkbox" value="${cat}|${album}" class="album-cb" data-cat="${cat}">
+                    <span>${formatAlbumTitle(album)} (${albumWords} từ)</span>
+                `;
+                albumList.appendChild(albumItem);
+            });
+
+            group.appendChild(header);
+            group.appendChild(albumList);
+            container.appendChild(group);
+
+            // Logic for Master Checkbox
+            const masterCb = header.querySelector('.cat-master-cb');
+            const albumCbs = albumList.querySelectorAll('.album-cb');
+
+            masterCb.addEventListener('change', () => {
+                albumCbs.forEach(cb => cb.checked = masterCb.checked);
+            });
+
+            albumCbs.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const allChecked = Array.from(albumCbs).every(c => c.checked);
+                    const someChecked = Array.from(albumCbs).some(c => c.checked);
+                    masterCb.checked = allChecked;
+                    masterCb.indeterminate = someChecked && !allChecked;
+                });
+            });
         });
     }
 
     function generatePlan() {
-        const selected = Array.from(document.querySelectorAll('#wizardCategories input:checked')).map(cb => cb.value);
+        const selectedAlbums = Array.from(document.querySelectorAll('.album-cb:checked')).map(cb => cb.value);
         const days = parseInt(document.getElementById('inputTargetDays').value) || 30;
-        
-        if (selected.length === 0) {
-            alert("Vui lòng chọn ít nhất 1 bộ từ vựng!"); return;
+        const planName = document.getElementById('inputPlanName').value.trim() || `Lộ trình ${Object.keys(state.hardcorePlans).length + 1}`;
+
+        if (selectedAlbums.length === 0) {
+            alert("Vui lòng chọn ít nhất 1 album từ vựng!"); return;
         }
 
         let poolNew = [];
-        selected.forEach(cat => {
-            TOEIC_DATA[cat].forEach(w => {
-                const key = getWordKey(cat, w._album, w.tu_vung);
+        selectedAlbums.forEach(composedKey => {
+            const [cat, album] = composedKey.split('|');
+            const wordsInAlbum = TOEIC_DATA[cat].filter(w => w._album === album);
+
+            wordsInAlbum.forEach(w => {
+                const key = getWordKey(cat, album, w.tu_vung);
                 const stat = state.wordStats[key];
                 if (!stat || stat.status === 0 || stat.status === undefined) {
-                    poolNew.push({ wordObj: w, key: key, cat: cat, type: 'new' });
+                    poolNew.push({ wordObj: w, key: key, cat: cat, album: album, type: 'new' });
                 }
             });
         });
 
+        if (poolNew.length === 0) {
+            alert("Các album bạn chọn đã được học hết rồi! Vui lòng chọn nội dung khác.");
+            return;
+        }
+
+        // Tự động xáo trộn để học xen kẽ
+        poolNew.sort(() => Math.random() - 0.5);
+
         // Tách rổ từ mới theo targetDays
         const chunks = [];
         let wpd = Math.ceil(poolNew.length / days);
-        if (wpd === 0) wpd = 10;
+        if (wpd === 0) wpd = 5;
         for (let i = 0; i < days; i++) {
             chunks.push(poolNew.slice(i * wpd, (i + 1) * wpd));
         }
-        
-        state.hardcorePlan = {
-            categories: selected,
+
+        const planId = 'plan_' + Date.now();
+        state.hardcorePlans[planId] = {
+            id: planId,
+            name: planName,
+            selectedAlbums: selectedAlbums,
             targetDays: days,
             startDate: getTodayStr(),
             lastQueueDate: null,
@@ -669,74 +754,94 @@ document.addEventListener('DOMContentLoaded', () => {
             queueReview: [],
             activeDay: 1
         };
-        savePlan();
+        state.activePlanId = planId;
+        savePlans();
         document.getElementById('wizardModal').classList.remove('open');
         openHardcoreMode();
     }
 
-    window.switchToDay = function(dayNum) {
-        if (!state.hardcorePlan) return;
-        if (state.hardcorePlan.activeDay === dayNum) return;
-        
-        state.hardcorePlan.activeDay = dayNum;
-        savePlan();
+    window.switchToDay = function (dayNum) {
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan) return;
+        if (plan.activeDay === dayNum) return;
+
+        plan.activeDay = dayNum;
+        savePlans();
         switchMainView('hardcore');
     };
 
     function generateTodayQueue() {
         const todayStr = getTodayStr();
-        const plan = state.hardcorePlan;
-        
-        // backward compatibility for old structural objects
-        if (!plan.dailyChunks) {
-            alert("Hệ thống Lộ trình vừa được Nâng Cấp lớn (Version 3.0), bài học cũ của bạn sẽ được thiết lập lại. Bạn vui lòng tạo lại Khởi động Lộ trình mới nhé!");
-            state.hardcorePlan = null;
-            savePlan();
-            openHardcoreMode();
-            return;
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan) return;
+
+        // migration: check if using old "categories" instead of "selectedAlbums"
+        if (plan.categories && !plan.selectedAlbums) {
+            console.log("Migrating old plan to new album-based system...");
+            plan.selectedAlbums = plan.categories.flatMap(cat => (state.albums[cat] || []).map(alb => `${cat}|${alb}`));
+            delete plan.categories;
+            savePlans();
         }
 
         if (plan.lastQueueDate === todayStr) {
             renderHardcoreDashboard();
             return;
         }
-        
+
         let poolReview = [];
         const nowTime = new Date().getTime();
-        
-        plan.categories.forEach(cat => {
+
+        // Group selected albums by category for faster lookup
+        const catMap = {};
+        if (plan.selectedAlbums) {
+            plan.selectedAlbums.forEach(ak => {
+                const parts = ak.split('|');
+                if (parts.length < 2) return;
+                const [c, a] = parts;
+                if (!catMap[c]) catMap[c] = new Set();
+                catMap[c].add(a);
+            });
+        }
+
+        Object.keys(catMap).forEach(cat => {
+            if (!TOEIC_DATA[cat]) return;
             TOEIC_DATA[cat].forEach(w => {
+                if (!catMap[cat].has(w._album)) return; // Only review words in selected albums
+
                 const key = getWordKey(cat, w._album, w.tu_vung);
                 const stat = state.wordStats[key];
-                
+
                 if (stat && stat.status === 1) {
                     if (stat.nextDate <= nowTime) {
-                         poolReview.push({ wordObj: w, key: key, cat: cat, type: 'review' });
+                        poolReview.push({ wordObj: w, key: key, cat: cat, album: w._album, type: 'review' });
                     }
                 }
             });
         });
-        
+
         plan.queueReview = poolReview;
         plan.lastQueueDate = todayStr;
-        
-        savePlan();
+
+        savePlans();
         renderHardcoreDashboard();
     }
 
     function renderHardcoreDashboard() {
-        const plan = state.hardcorePlan;
-        if (!plan) return;
-        
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan) {
+            openHardcoreMode();
+            return;
+        }
+
         const hcDash = document.getElementById('hardcoreDashboard');
         const currentChunk = plan.dailyChunks[plan.activeDay - 1] || [];
-        
+
         let listHtml = '<div class="list-container hc-scroll-list" style="margin-top: 30px;">';
-        
+
         const allItems = [...plan.queueReview, ...currentChunk];
-        
+
         if (allItems.length === 0) {
-            listHtml += '<div style="text-align:center; padding: 40px; color: var(--text-secondary);">Trống trơn! Nhấn Đổi Kế Hoạch.</div>';
+            listHtml += '<div style="text-align:center; padding: 40px; color: var(--text-secondary);">Trống trơn! Nhấn Đổi Lộ Trình.</div>';
         } else {
             allItems.forEach((item) => {
                 const word = item.wordObj;
@@ -746,11 +851,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (item.sessionResult === 'fail') {
                     statusBadge = '<span class="badge-pos" style="background:var(--danger); color:white;"><i class="fa-solid fa-xmark"></i> Quên (Cần Ôn)</span>';
                 }
-                
+
                 const typeBadge = item.type === 'new' ? '<span class="badge-pos"><i class="fa-solid fa-gem"></i> Từ Mới</span>' : '<span class="badge-pos" style="background:var(--warning); color:white;"><i class="fa-solid fa-rotate-right"></i> Ôn Lại</span>';
-                
+
                 const plainWord = word.tu_vung.replace(/<[^>]+>/g, '');
-                
+
                 listHtml += `
                     <div class="list-item">
                         <div class="list-word-col">
@@ -770,13 +875,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
         }
-        
+
         listHtml += '</div>';
 
         const remainingNew = currentChunk.filter(i => i.sessionResult !== 'pass').length;
         const remainingReview = plan.queueReview.filter(i => i.sessionResult !== 'pass').length;
         const totalRemaining = remainingNew + remainingReview;
-        
+
         let btnHtml = '';
         if (totalRemaining === 0) {
             btnHtml = `<button class="btn-hardcore-start" style="background: var(--success); cursor: default; margin-bottom:15px;">Hoàn Thành Lộ Trình Lần Này <i class="fa-solid fa-check-double"></i></button>
@@ -784,88 +889,99 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             btnHtml = `<button class="btn-hardcore-start" id="btnStartHardcoreSession">BẮT ĐẦU CHIẾN ĐẤU (${totalRemaining} Từ) <i class="fa-solid fa-rocket"></i></button>`;
         }
-        
+
         let daysHtml = `<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: center;">`;
-        for(let i=1; i<=plan.targetDays; i++) {
+        for (let i = 1; i <= plan.targetDays; i++) {
             const isAct = (i === plan.activeDay);
-            daysHtml += `<button class="btn-primary" onclick="window.switchToDay(${i})" style="padding: 8px 15px; font-weight: bold; background: ${isAct ? 'var(--primary)' : 'var(--glass-bg)'}; color: ${isAct ? '#fff' : 'var(--text-main)'}; border: 1px solid ${isAct ? 'var(--primary)' : 'var(--glass-border)'};"><i class="fa-solid fa-${isAct?'fire':'calendar-day'}"></i> Day ${i}</button>`;
+            daysHtml += `<button class="btn-primary" onclick="window.switchToDay(${i})" style="padding: 8px 15px; font-weight: bold; background: ${isAct ? 'var(--primary)' : 'var(--glass-bg)'}; color: ${isAct ? '#fff' : 'var(--text-main)'}; border: 1px solid ${isAct ? 'var(--primary)' : 'var(--glass-border)'};"><i class="fa-solid fa-${isAct ? 'fire' : 'calendar-day'}"></i> Day ${i}</button>`;
         }
         daysHtml += `</div>`;
-            
+
         hcDash.innerHTML = `
             <div class="hc-header">
-                <h2>Lộ Trình 🔥 Chọn Phiên Học Nhánh Nhanh</h2>
-                <button class="btn-primary" id="btnEditPlan"><i class="fa-solid fa-pen"></i> Đổi Lộ Trình</button>
+                <h2>Lộ Trình: ${plan.name} 🔥</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-primary" id="btnSwitchPlan"><i class="fa-solid fa-rotate"></i> Đổi Lộ Trình</button>
+                    <button class="btn-primary" id="btnEditPlan" style="background:var(--danger); color:white;"><i class="fa-solid fa-trash"></i> Xóa Lộ Trình</button>
+                </div>
             </div>
             ${daysHtml}
             <div style="text-align: center; margin: 30px 0;">
                 ${btnHtml}
             </div>
-            
             ${listHtml}
         `;
-        
-        const btnEdit = document.getElementById('btnEditPlan');
-        if (btnEdit) {
-            btnEdit.addEventListener('click', () => {
-                populateWizardCategories();
-                document.getElementById('wizardModal').classList.add('open');
-            });
-        }
-        
-        const btnStart = document.getElementById('btnStartHardcoreSession');
-        if (btnStart) {
-            btnStart.addEventListener('click', startHardcoreSession);
-        }
-        
-        const btnAdvance = document.getElementById('btnAdvanceSession');
-        if (btnAdvance) {
-            btnAdvance.addEventListener('click', advanceToNextSession);
-        }
-        
-        document.querySelectorAll('.hc-dash-audio').forEach(btn => {
+
+        // Bind events for dynamically rendered buttons
+        const switchBtn = hcDash.querySelector('#btnSwitchPlan');
+        if (switchBtn) switchBtn.addEventListener('click', renderPlanManager);
+
+        const deleteBtn = hcDash.querySelector('#btnEditPlan');
+        if (deleteBtn) deleteBtn.addEventListener('click', () => {
+            if (confirm(`Bạn có chắc chắn muốn XÓA lộ trình "${plan.name}" không?`)) {
+                delete state.hardcorePlans[state.activePlanId];
+                state.activePlanId = null;
+                savePlans();
+                openHardcoreMode();
+            }
+        });
+
+        const startBtn = hcDash.querySelector('#btnStartHardcoreSession');
+        if (startBtn) startBtn.addEventListener('click', startHardcoreSession);
+
+        const advanceBtn = hcDash.querySelector('#btnAdvanceSession');
+        if (advanceBtn) advanceBtn.addEventListener('click', advanceHardcoreDay);
+
+        // Bind audio buttons in dashboard
+        hcDash.querySelectorAll('.hc-dash-audio').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 playAudio(e.currentTarget.getAttribute('data-word'));
             });
         });
     }
 
-    function advanceToNextSession() {
-        if (!confirm("Tuyệt vời! Bạn có muốn nhảy ngay sang ngày tiếp theo (Day " + (state.hardcorePlan.activeDay + 1) + ") trong Lộ trình không?")) return;
-        
-        if (state.hardcorePlan.activeDay >= state.hardcorePlan.targetDays) {
+    function advanceHardcoreDay() {
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan) return;
+
+        if (!confirm("Tuyệt vời! Bạn có muốn nhảy ngay sang ngày tiếp theo (Day " + (plan.activeDay + 1) + ") trong Lộ trình không?")) return;
+
+        if (plan.activeDay >= plan.targetDays) {
             alert("Bạn đã ở ngày cuối cùng của Lộ trình rồi!");
             return;
         }
-        
-        state.hardcorePlan.activeDay++;
-        savePlan();
+
+        plan.activeDay++;
+        savePlans();
         renderHardcoreDashboard();
     }
 
     function startHardcoreSession() {
-        const plan = state.hardcorePlan;
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan) return;
+
         const currentChunk = plan.dailyChunks[plan.activeDay - 1] || [];
         const remainingNew = currentChunk.filter(i => i.sessionResult !== 'pass');
         const remainingReview = plan.queueReview.filter(i => i.sessionResult !== 'pass');
-        
+
         const sessionWords = [...remainingReview, ...remainingNew];
-        
+
         if (sessionWords.length === 0) {
             alert('Bạn đã hoàn thành mục tiêu hôm nay! Quá xuất sắc!');
             return;
         }
-        
+
         state.hardcoreSession = sessionWords;
         state.hardcoreIndex = 0;
-        
+
         els.learningHeader.style.display = 'flex';
         els.learningView.style.display = 'block';
         document.getElementById('hardcoreDashboard').style.display = 'none';
-        
+
         els.btnList.style.display = 'none';
         els.btnFlashcard.style.display = 'none';
-        
+
         state.currentMainView = 'hardcore_learning';
         renderHardcoreFlashcard();
     }
@@ -875,10 +991,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!stat || stat.status === 0 || stat.status === undefined) {
             stat = { status: 0, step: 0, nextDate: 0 };
         }
-        
+
         const now = new Date().getTime();
         const DayMs = 24 * 60 * 60 * 1000;
-        
+
         if (isKnown) {
             if (stat.status === 0) {
                 stat.status = 1; // move to review
@@ -896,33 +1012,34 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             stat.status = 1;
             stat.step = 0;
-            stat.nextDate = now + 1 * DayMs; 
+            stat.nextDate = now + 1 * DayMs;
         }
-        
+
         state.wordStats[key] = stat;
         saveStats();
     }
 
     function renderHardcoreFlashcard() {
-        if (!state.hardcoreSession || state.hardcoreIndex >= state.hardcoreSession.length) {
+        const plan = state.hardcorePlans[state.activePlanId];
+        if (!plan || !state.hardcoreSession || state.hardcoreIndex >= state.hardcoreSession.length) {
             switchMainView('hardcore');
             els.btnList.style.display = 'inline-block';
             els.btnFlashcard.style.display = 'inline-block';
             els.currentAlbumTitle.textContent = "Hoàn thành";
             return;
         }
-        
+
         const item = state.hardcoreSession[state.hardcoreIndex];
         const word = item.wordObj;
         const progress = (state.hardcoreIndex / state.hardcoreSession.length) * 100;
         const examplesHtml = getExamplesHtml(word);
-        
+
         els.currentAlbumTitle.textContent = `🔥 Khô Máu: Task ${state.hardcoreIndex + 1}/${state.hardcoreSession.length} | ${item.type === 'new' ? '💎 Từ Mới' : '🔄 Ôn Lại'}`;
 
         // 1. Generate Day List HTML
         let dayListHtml = '';
-        const currentDay = state.hardcorePlan.activeDay;
-        for (let i = 1; i <= state.hardcorePlan.targetDays; i++) {
+        const currentDay = plan.activeDay;
+        for (let i = 1; i <= plan.targetDays; i++) {
             let cls = '';
             let icon = '<i class="fa-regular fa-circle"></i>';
             if (i < currentDay) { cls = 'past'; icon = '<i class="fa-solid fa-circle-check"></i>'; }
@@ -939,10 +1056,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (sItem.sessionResult === 'fail') cls = 'fail';
             mapHtml += `<div class="hc-map-dot ${cls}" title="${sItem.wordObj.tu_vung.replace(/<[^>]+>/g, '')}"></div>`;
         });
-        
+
         // 3. Timer Formatter
         const formatTime = (totalSeconds) => {
-            if(totalSeconds < 0) totalSeconds = 0;
+            if (totalSeconds < 0) totalSeconds = 0;
             const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
             const s = (totalSeconds % 60).toString().padStart(2, '0');
             return `${m}:${s}`;
@@ -954,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="hc-learning-layout">
                 <!-- Left Sidebar -->
                 <div class="hc-sidebar-left">
-                    <div class="hc-widget-title"><i class="fa-solid fa-calendar-days"></i> Lộ trình (${state.hardcorePlan.targetDays} Ngày)</div>
+                    <div class="hc-widget-title"><i class="fa-solid fa-calendar-days"></i> Lộ trình (${plan.targetDays} Ngày)</div>
                     <div class="hc-day-list">
                         ${dayListHtml}
                     </div>
@@ -1058,26 +1175,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 playAudio(textToPlay, enContainer, ipaContainer);
             });
         });
-        
+
         document.getElementById('btnHcPass').addEventListener('click', () => {
-             processSrs(item.key, true);
-             item.sessionResult = 'pass';
-             savePlan();
-             state.hardcoreIndex++;
-             renderHardcoreFlashcard();
-             // update dashboard background cache optionally
-             renderHardcoreDashboard();
+            processSrs(item.key, true);
+            item.sessionResult = 'pass';
+            savePlans();
+            state.hardcoreIndex++;
+            renderHardcoreFlashcard();
+            // update dashboard background cache optionally
+            renderHardcoreDashboard();
         });
-        
+
         document.getElementById('btnHcReject').addEventListener('click', () => {
-             processSrs(item.key, false);
-             item.sessionResult = 'fail';
-             savePlan();
-             state.hardcoreIndex++;
-             renderHardcoreFlashcard();
-             renderHardcoreDashboard();
+            processSrs(item.key, false);
+            item.sessionResult = 'fail';
+            savePlan();
+            state.hardcoreIndex++;
+            renderHardcoreFlashcard();
+            renderHardcoreDashboard();
         });
-        
+
         // Timer Logic
         const btnTimerPlayPause = document.getElementById('btnTimerPlayPause');
         const btnTimerReset = document.getElementById('btnTimerReset');
@@ -1094,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 state.hcTimerIsRunning = true;
                 btnTimerPlayPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
-                
+
                 // If it's starting fresh and is down mode, fetch from input
                 if (state.hcTimerValue === 0 && hcTimerInput.value > 0 && state.hcTimerMode === 'down') {
                     state.hcTimerValue = parseInt(hcTimerInput.value) * 60;
@@ -1143,8 +1260,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // If the user hasn't started the timer yet but it's first load, initialize state
         if (!state.hcTimerIsRunning && state.hcTimerValue === 0 && parseInt(hcTimerInput.value) > 0) {
-             state.hcTimerValue = parseInt(hcTimerInput.value) * 60;
-             updateTimerDisplay();
+            state.hcTimerValue = parseInt(hcTimerInput.value) * 60;
+            updateTimerDisplay();
         }
     }
 
@@ -1152,19 +1269,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hardcore bindings
         const btnHardcoreNav = document.getElementById('btnHardcoreNav');
         if (btnHardcoreNav) btnHardcoreNav.addEventListener('click', openHardcoreMode);
-        
+
         const btnCloseWizard = document.getElementById('btnCloseWizard');
         if (btnCloseWizard) btnCloseWizard.addEventListener('click', () => document.getElementById('wizardModal').classList.remove('open'));
-        
+
         const btnGeneratePlan = document.getElementById('btnGeneratePlan');
         if (btnGeneratePlan) btnGeneratePlan.addEventListener('click', generatePlan);
-        
-        const btnEditPlan = document.getElementById('btnEditPlan');
-        if (btnEditPlan) btnEditPlan.addEventListener('click', () => {
-            populateWizardCategories();
-            document.getElementById('wizardModal').classList.add('open');
-        });
-        
+
         const btnStartHc = document.getElementById('btnStartHardcoreSession');
         if (btnStartHc) btnStartHc.addEventListener('click', startHardcoreSession);
 
@@ -1194,11 +1305,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Top tab scrolling
         const btnLeft = document.querySelector('.scroll-left');
         const btnRight = document.querySelector('.scroll-right');
-        
+
         if (btnLeft && btnRight && els.navTabs) {
             // Simple check if overflow
             const checkScroll = () => {
-                if(els.navTabs.scrollWidth > els.navTabs.clientWidth) {
+                if (els.navTabs.scrollWidth > els.navTabs.clientWidth) {
                     btnLeft.style.display = 'block';
                     btnRight.style.display = 'block';
                 } else {
@@ -1223,7 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
             const key = e.key.toLowerCase();
-            
+
             if (state.currentMainView === 'learning' || state.currentMainView === 'hardcore_learning') {
                 // Audio Hotkeys
                 if (key === state.hotkeyVocab) {
@@ -1243,7 +1354,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         state.hardcoreIndex--;
                         renderHardcoreFlashcard();
                     } else if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                        e.preventDefault(); 
+                        e.preventDefault();
                         const card = document.getElementById('flashcard');
                         if (card) card.classList.toggle('is-flipped');
                     }
@@ -1253,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (state.currentMainView !== 'learning' || state.words.length === 0) return;
             if (state.currentLearningMode !== 'flashcard') return;
-            
+
             if (e.key === 'ArrowRight' && state.currentIndex < state.words.length - 1) {
                 state.currentIndex++;
                 renderLearningContent();
@@ -1267,6 +1378,102 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    function renderPlanManager() {
+        const hcDash = document.getElementById('hardcoreDashboard');
+        if (!hcDash) return;
+
+        switchMainView('hardcore');
+
+        let plansHtml = `
+            <div class="hc-header" style="margin-bottom: 30px;">
+                <h2 style="font-size: 1.8rem;"><i class="fa-solid fa-layer-group"></i> Kho Lộ Trình</h2>
+                <button class="btn-hardcore-start" id="btnAddNewPlan" style="width: auto; padding: 12px 25px; font-size: 1rem; margin: 0;">
+                    <i class="fa-solid fa-plus-circle"></i> Tạo Lộ Trình Mới
+                </button>
+            </div>
+            <div class="plan-list-container">
+        `;
+
+        const planIds = Object.keys(state.hardcorePlans);
+        if (planIds.length === 0) {
+            plansHtml += `
+                <div style="grid-column: 1/-1; text-align:center; padding: 60px; background: var(--glass-bg); border-radius: 20px; border: 2px dashed var(--glass-border);">
+                    <i class="fa-solid fa-clipboard-list" style="font-size: 4rem; color: var(--glass-border); margin-bottom: 20px;"></i>
+                    <p style="color:var(--text-secondary); font-size: 1.1rem;">Bạn chưa có lộ trình học tập nào.<br>Hãy bắt đầu bằng cách tạo một lộ trình "Khô Máu" để chinh phục mục tiêu!</p>
+                </div>`;
+        } else {
+            planIds.forEach(id => {
+                const plan = state.hardcorePlans[id];
+                const isActive = (id === state.activePlanId);
+
+                // Calculate total progress
+                let totalWords = 0;
+                let doneWords = 0;
+                if (plan.dailyChunks) {
+                    plan.dailyChunks.forEach(chunk => {
+                        totalWords += chunk.length;
+                        doneWords += chunk.filter(w => w.sessionResult === 'pass').length;
+                    });
+                }
+                const progress = totalWords > 0 ? Math.round((doneWords / totalWords) * 100) : 0;
+                const albumCount = plan.selectedAlbums ? plan.selectedAlbums.length : (plan.categories ? plan.categories.length : 0);
+
+                plansHtml += `
+                    <div class="plan-item ${isActive ? 'active' : ''}">
+                        <div class="plan-info">
+                            <div class="plan-name">
+                                ${plan.name} 
+                                ${isActive ? '<span class="badge-active"><i class="fa-solid fa-play"></i> Đang học</span>' : ''}
+                            </div>
+                            <div class="plan-meta">
+                                <span><i class="fa-solid fa-calendar-check"></i> <strong>${plan.targetDays}</strong> ngày</span> • 
+                                <span><i class="fa-solid fa-book-bookmark"></i> <strong>${albumCount}</strong> album mục tiêu</span>
+                            </div>
+                            <div class="plan-progress-container">
+                                <div class="plan-progress-bar"><div class="plan-progress-fill" style="width: ${progress}%"></div></div>
+                                <span class="plan-progress-text">${progress}% Hoàn thành</span>
+                            </div>
+                        </div>
+                        <div class="plan-actions">
+                            ${isActive ?
+                        `<button class="btn-plan-select disabled" disabled><i class="fa-solid fa-check"></i> Đang chọn</button>` :
+                        `<button class="btn-plan-select" onclick="window.setActivePlan('${id}')"><i class="fa-solid fa-rocket"></i> Chọn học</button>`
+                    }
+                            <button class="btn-plan-delete" onclick="window.deletePlan('${id}')" title="Xóa lộ trình vĩnh viễn"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        plansHtml += `</div>`;
+        hcDash.innerHTML = plansHtml;
+
+        const btnAdd = document.getElementById('btnAddNewPlan');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                populateWizardCategories();
+                document.getElementById('wizardModal').classList.add('open');
+            });
+        }
+    }
+
+    window.setActivePlan = function (id) {
+        state.activePlanId = id;
+        savePlans();
+        openHardcoreMode();
+    };
+
+    window.deletePlan = function (id) {
+        const plan = state.hardcorePlans[id];
+        if (confirm(`Bạn có chắc chắn muốn XÓA lộ trình "${plan.name}" không?`)) {
+            delete state.hardcorePlans[id];
+            if (state.activePlanId === id) state.activePlanId = null;
+            savePlans();
+            renderPlanManager();
+        }
+    };
 
     init();
 });

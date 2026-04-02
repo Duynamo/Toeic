@@ -1078,3 +1078,192 @@ body {
     .list-word-col { width: 100%; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; }
     .list-actions { position: absolute; top: 20px; right: 20px; flex-direction: row; }
 }
+
+/* --- Plan Manager UI --- */
+.plan-list-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.plan-item {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.plan-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+    box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.2);
+}
+
+.plan-item.active {
+    background: rgba(124, 58, 237, 0.05);
+    border-color: var(--primary);
+    border-width: 2px;
+}
+
+.plan-info {
+    flex-grow: 1;
+}
+
+.plan-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.badge-active {
+    background: var(--success);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 800;
+}
+
+.plan-meta {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+}
+
+.plan-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.plan-progress-bar {
+    flex-grow: 1;
+    height: 6px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.plan-progress-fill {
+    height: 100%;
+    background: var(--success);
+    transition: width 1s ease;
+}
+
+.plan-progress-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 40px;
+}
+
+.plan-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-left: 20px;
+}
+
+.btn-plan-select {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-plan-select:hover:not(.disabled) {
+    background: var(--primary-hover);
+    transform: scale(1.05);
+}
+
+.btn-plan-select.disabled {
+    background: var(--text-secondary);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.btn-plan-delete {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-plan-delete:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+}
+
+/* Wizard Selection UI */
+.hc-category-group {
+    margin-bottom: 15px;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--card-bg);
+}
+
+.hc-category-header {
+    background: rgba(0,0,0,0.02);
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.hc-category-header:hover {
+    background: rgba(124, 58, 237, 0.05);
+}
+
+.hc-album-list {
+    padding: 5px 15px 10px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: white;
+}
+
+.hc-album-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.hc-album-item:hover {
+    color: var(--text-primary);
+}
+
+.hc-album-item input {
+    cursor: pointer;
+}
+
